@@ -1,7 +1,8 @@
 module Main where
 
 import Prelude hiding (lookup)
-import Control.Applicative
+import Control.Applicative ((<$>))
+import Control.Arrow ((&&&))
 import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe
@@ -9,45 +10,74 @@ import Data.Monoid
 
 type Coord = (Int, Int)
 
-type LevelMap = M.Map Coord
+data Level = Level { levelWalls  :: [Wall]
+                   , levelHeroes :: [Hero]
+                   , levelItems  :: [Item] }
 
-data Item = Item {}
-                 deriving (Show)
 
-data Wall = Wall {}
-                 deriving (Show)
+class Position p where
+    getPosition :: p -> Coord
 
-data Hero = Hero { heroName :: String }
-                 deriving (Show)
+class Sigil s where
+    getSigil :: s -> Char
 
-data Level = Level { levelItems  :: LevelMap Item
-                   , levelHeroes :: LevelMap Hero
-                   , levelWalls  :: LevelMap Wall }
-                   deriving (Show)
 
-data World = World { worldLevels :: [Level]
-                   , worldHeroes :: [Hero] }
+data Hero = Hero { heroPosition :: Coord }
 
-makeSquare :: Int -> [(Coord, Wall)]
-makeSquare size = do
+instance Position Hero where
+    getPosition = heroPosition
+
+instance Sigil Hero where
+    getSigil = const '@'
+
+
+data Wall = Wall { wallPosition :: Coord }
+
+instance Position Wall where
+    getPosition = wallPosition
+
+instance Sigil Wall where
+    getSigil = const '#'
+
+
+data Item = Item { itemPosition :: Coord
+                 , itemSigil    :: Char }
+
+instance Position Item where
+    getPosition = itemPosition
+
+instance Sigil Item where
+    getSigil = itemSigil
+
+
+defaultHero :: Hero
+defaultHero = Hero { heroPosition = (2, 2) }
+
+defaultItem :: Item
+defaultItem = Item { itemPosition = (7, 8)
+                   , itemSigil = '$' }
+
+squareWall :: Int -> [Wall]
+squareWall size = do
     x <- [1 .. size]
     y <- [1 .. size]
     guard $ x == 1 || x == size || y == 1 || y == size
-    return ((x, y), Wall)
+    return Wall { wallPosition = (x, y) }
 
-emptyLevel :: Level
-emptyLevel = Level { levelItems = M.empty
-                   , levelHeroes = M.fromList [((2, 2), Hero { heroName = "hero!" })]
-                   , levelWalls = M.fromList $ makeSquare 10 }
+defaultLevel :: Level
+defaultLevel = Level { levelHeroes = [defaultHero]
+                     , levelWalls = squareWall 10
+                     , levelItems = [defaultItem] }
 
 drawLevel :: Level -> String
 drawLevel level = unlines . map row $ [1 .. 10]
-  where row y = map char [1 .. 10]
-          where char x = fromMaybe ' ' . getFirst . mconcat . map (First . ($ (x, y))) $ drawFs
-        lookup select char coord = const char <$> M.lookup coord (select level)
-        drawFs = [ lookup levelWalls '#'
-                 , lookup levelHeroes '@'
-                 , lookup levelItems '$' ]
+  where row y = map (sigil y) [1 .. 10]
+        sigil y x = fromMaybe ' ' . getFirst . mconcat . map (First . ($ (x, y))) $ lookups
+        lookups = [ lookup levelWalls
+                  , lookup levelHeroes
+                  , lookup levelItems ]
+        lookup select coord = getSigil <$> M.lookup coord (toMap . select $ level)
+        toMap xs = M.fromList $ map (getPosition &&& id) xs
 
 main :: IO ()
-main = putStr $ drawLevel emptyLevel
+main = putStr $ drawLevel defaultLevel
