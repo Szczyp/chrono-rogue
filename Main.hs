@@ -7,9 +7,10 @@ import Data.Maybe
 
 type Coord = (Int, Int)
 
-data Level = Level { levelWalls  :: [Wall]
-                   , levelHeroes :: [Hero]
-                   , levelItems  :: [Item] }
+data Level = Level { levelWalls    :: [Wall]
+                   , levelHeroes   :: [Hero]
+                   , levelMonsters :: [Monster]
+                   , levelItems    :: [Item] }
 
 
 type RenderInfo = (Coord, Char)
@@ -35,6 +36,18 @@ instance Sigil Hero where
     sigil = const '@'
 
 instance Renderable Hero
+
+
+data Monster = Monster { monsterPosition :: Coord
+                       , monsterSigil :: Char }
+
+instance Position Monster where
+    position = monsterPosition
+
+instance Sigil Monster where
+    sigil = monsterSigil
+
+instance Renderable Monster
 
 
 data Wall = Wall { wallPosition :: Coord }
@@ -63,10 +76,13 @@ instance Renderable Item
 defaultHero :: Hero
 defaultHero = Hero { heroPosition = (2, 2) }
 
+defaultMonster :: Monster
+defaultMonster = Monster { monsterPosition = (7, 9)
+                         , monsterSigil    = 'k' }
 
 defaultItem :: Item
 defaultItem = Item { itemPosition = (7, 8)
-                   , itemSigil = '$' }
+                   , itemSigil    = '$' }
 
 
 squareWall :: Int -> [Wall]
@@ -78,16 +94,19 @@ squareWall size = do
 
 
 defaultLevel :: Level
-defaultLevel = Level { levelHeroes = [defaultHero]
-                     , levelWalls = squareWall 10
-                     , levelItems = [defaultItem] }
-
+defaultLevel = Level { levelHeroes   = [defaultHero]
+                     , levelMonsters = [defaultMonster]
+                     , levelWalls    = squareWall 10
+                     , levelItems    = [defaultItem] }
 
 drawLevel :: Level -> String
 drawLevel level = unlines . map makeRow $ [1 .. 10]
   where makeRow y = map (sigilOrDot y) [1 .. 10]
         sigilOrDot y x = fromMaybe '.' . M.lookup (x, y) $ coordMap
-        coordMap = M.unions [toMap levelHeroes, toMap levelWalls, toMap levelItems]
+        coordMap = M.unions [ toMap levelHeroes
+                            , toMap levelMonsters
+                            , toMap levelWalls
+                            , toMap levelItems ]
         toMap select = M.fromList . map render . select $ level
 
 
