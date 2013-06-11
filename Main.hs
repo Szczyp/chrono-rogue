@@ -104,6 +104,7 @@ defaultLevel = Level { levelHeroes   = [defaultHero]
                      , levelWalls    = squareWall 10
                      , levelItems    = [defaultItem] }
 
+
 drawLevel :: Level -> String
 drawLevel level = unlines . map makeRow $ [1 .. 10]
   where makeRow y = map (sigilOrDot y) [1 .. 10]
@@ -115,7 +116,15 @@ drawLevel level = unlines . map makeRow $ [1 .. 10]
         toMap select = M.fromList . map render . select $ level
 
 
-data Direction = Stay | Up | UpRight | Right | DownRight | Down | DownLeft | Left | UpLeft
+data Direction = Stay
+               | Up
+               | UpRight
+               | Right
+               | DownRight
+               | Down
+               | DownLeft
+               | Left
+               | UpLeft
 
 
 walk :: Direction -> Coord -> Coord
@@ -131,8 +140,9 @@ walk UpLeft    (x, y) = (x - 1, y - 1)
 
 
 processInput :: Level -> Direction -> Level
-processInput level @ (Level { levelHeroes = hero : heroes }) direction = level { levelHeroes = move' hero : heroes }
-    where move' = move $ walk direction $ position hero
+processInput level @ (Level { levelHeroes = hero : heroes }) direction =
+    level { levelHeroes = move' hero : heroes }
+      where move' = move $ walk direction $ position hero
 
 
 getInput :: IO Direction
