@@ -1,6 +1,6 @@
 module Main where
 
-import Prelude hiding (lookup)
+import Prelude hiding (lookup, Left, Right)
 import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe
@@ -15,13 +15,14 @@ data Level = Level { levelWalls    :: [Wall]
 
 type RenderInfo = (Coord, Char)
 
-class (Position renderable, Sigil renderable) => Renderable renderable where
-    render :: renderable -> RenderInfo
-    render renderable = (position renderable, sigil renderable)
+class (Position r, Sigil r) => Render r where
+    render :: r -> RenderInfo
+    render r = (position r, sigil r)
 
 
 class Position p where
     position :: p -> Coord
+    move :: Coord -> p -> p
 
 class Sigil s where
     sigil :: s -> Char
@@ -31,11 +32,12 @@ data Hero = Hero { heroPosition :: Coord }
 
 instance Position Hero where
     position = heroPosition
+    move coord hero = hero { heroPosition = coord }
 
 instance Sigil Hero where
     sigil = const '@'
 
-instance Renderable Hero
+instance Render Hero
 
 
 data Monster = Monster { monsterPosition :: Coord
@@ -43,22 +45,24 @@ data Monster = Monster { monsterPosition :: Coord
 
 instance Position Monster where
     position = monsterPosition
+    move coord monster = monster { monsterPosition = coord }
 
 instance Sigil Monster where
     sigil = monsterSigil
 
-instance Renderable Monster
+instance Render Monster
 
 
 data Wall = Wall { wallPosition :: Coord }
 
 instance Position Wall where
     position = wallPosition
+    move coord wall = wall { wallPosition = coord }
 
 instance Sigil Wall where
     sigil = const '#'
 
-instance Renderable Wall
+instance Render Wall
 
 
 data Item = Item { itemPosition :: Coord
@@ -66,11 +70,12 @@ data Item = Item { itemPosition :: Coord
 
 instance Position Item where
     position = itemPosition
+    move coord item = item { itemPosition = coord }
 
 instance Sigil Item where
     sigil = itemSigil
 
-instance Renderable Item
+instance Render Item
 
 
 defaultHero :: Hero
@@ -110,5 +115,48 @@ drawLevel level = unlines . map makeRow $ [1 .. 10]
         toMap select = M.fromList . map render . select $ level
 
 
+data Direction = Stay | Up | UpRight | Right | DownRight | Down | DownLeft | Left | UpLeft
+
+
+walk :: Direction -> Coord -> Coord
+walk Stay      coord  = coord
+walk Up        (x, y) = (x, y - 1)
+walk UpRight   (x, y) = (x + 1, y - 1)
+walk Right     (x, y) = (x + 1, y)
+walk DownRight (x, y) = (x + 1, y + 1)
+walk Down      (x, y) = (x, y + 1)
+walk DownLeft  (x, y) = (x - 1, y + 1)
+walk Left      (x, y) = (x - 1, y)
+walk UpLeft    (x, y) = (x - 1, y - 1)
+
+
+processInput :: Level -> Direction -> Level
+processInput level @ (Level { levelHeroes = hero : heroes }) direction = level { levelHeroes = move' hero : heroes }
+    where move' = move $ walk direction $ position hero
+
+
+getInput :: IO Direction
+getInput = do
+    char <- getChar
+    return $ case char of
+      's' -> Stay
+      'w' -> Up
+      'e' -> UpRight
+      'd' -> Right
+      'c' -> DownRight
+      'x' -> Down
+      'z' -> DownLeft
+      'a' -> Left
+      'q' -> UpLeft
+      _   -> Stay
+
+
+gameLoop :: Level -> IO ()
+gameLoop level = do
+    putStr $ drawLevel level
+    input <- getInput
+    gameLoop $ processInput level input
+
+
 main :: IO ()
-main = putStr $ drawLevel defaultLevel
+main = gameLoop defaultLevel
