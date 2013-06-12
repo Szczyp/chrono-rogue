@@ -1,130 +1,57 @@
 module Main where
 
 import Prelude hiding (lookup, Left, Right)
+import Control.Arrow ((&&&))
 import Control.Monad
 import qualified Data.Map as M
 import Data.Maybe
+import Data.Vinyl hiding (Level)
 
-type Coord = (Int, Int)
-
-data Level = Level { levelWalls    :: [Wall]
-                   , levelHeroes   :: [Hero]
-                   , levelMonsters :: [Monster]
-                   , levelItems    :: [Item] }
+import Types
 
 
-type RenderInfo = (Coord, Char)
-
-class (Position r, Sigil r) => Render r where
-    render :: r -> RenderInfo
-    render r = (position r, sigil r)
+defaultMonster :: PlainRec Monster
+defaultMonster = position =: (7, 9) <+>
+                 sigil    =: 'k'
 
 
-class Position p where
-    position :: p -> Coord
-    move :: Coord -> p -> p
-
-class Sigil s where
-    sigil :: s -> Char
+defaultItem :: PlainRec Item
+defaultItem = position =: (7, 8) <+>
+              sigil    =: '$'
 
 
-data Hero = Hero { heroPosition :: Coord }
-
-instance Position Hero where
-    position = heroPosition
-    move coord hero = hero { heroPosition = coord }
-
-instance Sigil Hero where
-    sigil = const '@'
-
-instance Render Hero
+defaultHero :: PlainRec Hero
+defaultHero = position =: (2, 2) <+>
+              sigil    =: '@' <+>
+              name     =: "HERO!"
 
 
-data Monster = Monster { monsterPosition :: Coord
-                       , monsterSigil :: Char }
-
-instance Position Monster where
-    position = monsterPosition
-    move coord monster = monster { monsterPosition = coord }
-
-instance Sigil Monster where
-    sigil = monsterSigil
-
-instance Render Monster
-
-
-data Wall = Wall { wallPosition :: Coord }
-
-instance Position Wall where
-    position = wallPosition
-    move coord wall = wall { wallPosition = coord }
-
-instance Sigil Wall where
-    sigil = const '#'
-
-instance Render Wall
-
-
-data Item = Item { itemPosition :: Coord
-                 , itemSigil    :: Char }
-
-instance Position Item where
-    position = itemPosition
-    move coord item = item { itemPosition = coord }
-
-instance Sigil Item where
-    sigil = itemSigil
-
-instance Render Item
-
-
-defaultHero :: Hero
-defaultHero = Hero { heroPosition = (2, 2) }
-
-defaultMonster :: Monster
-defaultMonster = Monster { monsterPosition = (7, 9)
-                         , monsterSigil    = 'k' }
-
-defaultItem :: Item
-defaultItem = Item { itemPosition = (7, 8)
-                   , itemSigil    = '$' }
-
-
-squareWall :: Int -> [Wall]
+squareWall :: Int -> [PlainRec Wall]
 squareWall size = do
     x <- [1 .. size]
     y <- [1 .. size]
     guard $ x == 1 || x == size || y == 1 || y == size
-    return Wall { wallPosition = (x, y) }
+    return $ position =: (x, y) <+>
+             sigil    =: '#'
 
 
-defaultLevel :: Level
-defaultLevel = Level { levelHeroes   = [defaultHero]
-                     , levelMonsters = [defaultMonster]
-                     , levelWalls    = squareWall 10
-                     , levelItems    = [defaultItem] }
+defaultLevel :: PlainRec Level
+defaultLevel = heroes =: [defaultHero] <+>
+               monsters =: [defaultMonster] <+>
+               items =: [defaultItem] <+>
+               walls =: squareWall 10
 
 
-drawLevel :: Level -> String
+drawLevel :: PlainRec Level -> String
 drawLevel level = unlines . map makeRow $ [1 .. 10]
   where makeRow y = map (sigilOrDot y) [1 .. 10]
         sigilOrDot y x = fromMaybe '.' . M.lookup (x, y) $ coordMap
-        coordMap = M.unions [ toMap levelHeroes
-                            , toMap levelMonsters
-                            , toMap levelWalls
-                            , toMap levelItems ]
-        toMap select = M.fromList . map render . select $ level
-
-
-data Direction = Stay
-               | Up
-               | UpRight
-               | Right
-               | DownRight
-               | Down
-               | DownLeft
-               | Left
-               | UpLeft
+        coordMap = M.unions $ map M.fromList renderables
+        renderables = map ($ level) [ coords . rGet heroes
+                                    , coords . rGet monsters
+                                    , coords . rGet items
+                                    , coords . rGet walls ]
+        coords = map $ rGet position &&& rGet sigil
 
 
 walk :: Direction -> Coord -> Coord
@@ -139,10 +66,9 @@ walk Left      (x, y) = (x - 1, y)
 walk UpLeft    (x, y) = (x - 1, y - 1)
 
 
-processInput :: Level -> Direction -> Level
-processInput level @ (Level { levelHeroes = hero : heroes }) direction =
-    level { levelHeroes = move' hero : heroes }
-      where move' = move $ walk direction $ position hero
+processInput :: PlainRec Level -> Direction -> PlainRec Level
+processInput level direction = rMod heroes move level
+      where move = map $ rMod position $ walk direction
 
 
 getInput :: IO Direction
@@ -161,7 +87,7 @@ getInput = do
       _   -> Stay
 
 
-gameLoop :: Level -> IO ()
+gameLoop :: PlainRec Level -> IO ()
 gameLoop level = do
     putStr $ drawLevel level
     input <- getInput

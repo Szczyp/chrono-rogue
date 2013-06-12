@@ -1,0 +1,10 @@
+Name: chrono-rogue
+Version: 0.0
+Build-Type: Simple
+Cabal-Version: >=1.16
+
+Executable chrono-rogue
+  Default-Language: Haskell2010
+  Build-depends: base, containers, vinyl
+  Main-Is: Main.hs
+  Default-Extensions: NoMonomorphismRestriction, FlexibleContexts, TypeOperators
