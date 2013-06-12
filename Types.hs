@@ -38,10 +38,10 @@ type Hero = ["position" ::: Coord, "sigil" ::: Char, "name" ::: String]
 
 type Wall = ["position" ::: Coord, "sigil" ::: Char]
 
-type Level = [ "heroes" ::: [PlainRec Hero]
+type Level = [ "heroes"   ::: [PlainRec Hero]
              , "monsters" ::: [PlainRec Monster]
-             , "items" ::: [PlainRec Item]
-             , "walls" ::: [PlainRec Wall] ]
+             , "items"    ::: [PlainRec Item]
+             , "walls"    ::: [PlainRec Wall] ]
 
 
 data Direction = Stay

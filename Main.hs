@@ -36,10 +36,10 @@ squareWall size = do
 
 
 defaultLevel :: PlainRec Level
-defaultLevel = heroes =: [defaultHero] <+>
+defaultLevel = heroes   =: [defaultHero] <+>
                monsters =: [defaultMonster] <+>
-               items =: [defaultItem] <+>
-               walls =: squareWall 10
+               items    =: [defaultItem] <+>
+               walls    =: squareWall 10
 
 
 drawLevel :: PlainRec Level -> String
@@ -47,11 +47,11 @@ drawLevel level = unlines . map makeRow $ [1 .. 10]
   where makeRow y = map (sigilOrDot y) [1 .. 10]
         sigilOrDot y x = fromMaybe '.' . M.lookup (x, y) $ coordMap
         coordMap = M.unions $ map M.fromList renderables
-        renderables = map ($ level) [ coords . rGet heroes
-                                    , coords . rGet monsters
-                                    , coords . rGet items
-                                    , coords . rGet walls ]
-        coords = map $ rGet position &&& rGet sigil
+        renderables = map ($ level) [ renderable heroes
+                                    , renderable monsters
+                                    , renderable items
+                                    , renderable walls ]
+        renderable field = map (rGet position &&& rGet sigil) . rGet field
 
 
 walk :: Direction -> Coord -> Coord
